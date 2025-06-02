@@ -22,7 +22,9 @@ struct VideoItem: Codable, Identifiable, Equatable {
     let folder: String?
     let streamURL: String
     let modifiedTime: String?
-    
+    var thumbnailImage: UIImage?
+    let uuid = UUID()
+
     private enum CodingKeys: String, CodingKey {
         case id
         case title = "name"
