@@ -11,7 +11,23 @@ import SwiftUI
 struct HomeHubApp: App {
     var body: some Scene {
         WindowGroup {
-            ServerDiscoveryView()
+            RootView()
+        }
+    }
+}
+
+struct RootView: View {
+    @State private var connectedServer: DiscoveredServer?
+    
+    var body: some View {
+        if let server = connectedServer {
+            MainView(server: server) {
+                connectedServer = nil
+            }
+        } else {
+            ServerDiscoveryView(onServerConnected: { server in
+                connectedServer = server
+            })
         }
     }
 }
