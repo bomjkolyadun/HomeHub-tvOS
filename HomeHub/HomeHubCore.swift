@@ -13,20 +13,30 @@ import AVKit
 // MARK: - Data Models
 
 struct VideoItem: Codable, Identifiable, Equatable {
-    let id = UUID()
+    let id: String
     let title: String
     let file: String
     let thumbnail: String?
     let duration: String?
-    let size: String?
+    let size: Int?
     let folder: String?
+    let streamURL: String
+    let modifiedTime: String?
     
     private enum CodingKeys: String, CodingKey {
-        case title, file, thumbnail, duration, size, folder
+        case id
+        case title = "name"
+        case file = "path"
+        case thumbnail = "thumbnail_url"
+        case duration
+        case size
+        case folder
+        case streamURL = "stream_url"
+        case modifiedTime = "modified_time"
     }
     
     static func == (lhs: VideoItem, rhs: VideoItem) -> Bool {
-        return lhs.file == rhs.file
+        return lhs.id == rhs.id
     }
 }
 
@@ -230,9 +240,17 @@ class VideoAPIService: ObservableObject {
         do {
             let (data, response) = try await session.data(from: url)
             
+            print("🔍 Fetching videos from: \(url)")
+            print("📦 Videos response data size: \(data.count) bytes")
+            
+            if let responseString = String(data: data, encoding: .utf8) {
+                print("📄 Videos response content: \(responseString)")
+            }
+            
             guard let httpResponse = response as? HTTPURLResponse,
                   httpResponse.statusCode == 200 else {
-                errorMessage = "Failed to load videos"
+                let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
+                errorMessage = "Failed to load videos - HTTP \(statusCode)"
                 isLoading = false
                 return
             }
@@ -250,8 +268,23 @@ class VideoAPIService: ObservableObject {
             self.currentFolder = apiResponse.currentFolder
             self.pagination = apiResponse.pagination
             
+        } catch let error as DecodingError {
+            print("❌ Decoding error: \(error)")
+            switch error {
+            case .keyNotFound(let key, let context):
+                errorMessage = "Missing key '\(key.stringValue)' in JSON response: \(context.debugDescription)"
+            case .typeMismatch(let type, let context):
+                errorMessage = "Type mismatch for \(type) in JSON: \(context.debugDescription)"
+            case .valueNotFound(let type, let context):
+                errorMessage = "Value not found for \(type) in JSON: \(context.debugDescription)"
+            case .dataCorrupted(let context):
+                errorMessage = "Data corrupted in JSON: \(context.debugDescription)"
+            @unknown default:
+                errorMessage = "Unknown decoding error: \(error.localizedDescription)"
+            }
         } catch {
-            errorMessage = "Failed to decode response: \(error.localizedDescription)"
+            print("❌ Error fetching videos: \(error)")
+            errorMessage = "Failed to fetch videos: \(error.localizedDescription)"
         }
         
         isLoading = false
