@@ -12,9 +12,11 @@ struct MainView: View {
     let server: DiscoveredServer
     @StateObject private var apiService: VideoAPIService
     @State private var selectedTab = 0
+    let onDisconnect: () -> Void
     
-    init(server: DiscoveredServer) {
+    init(server: DiscoveredServer, onDisconnect: @escaping () -> Void = {}) {
         self.server = server
+        self.onDisconnect = onDisconnect
         let baseURL = "http://\(server.host):\(server.port)"
         self._apiService = StateObject(wrappedValue: VideoAPIService(baseURL: baseURL))
     }
@@ -39,7 +41,7 @@ struct MainView: View {
                 }
                 .tag(2)
             
-            AppSettingsView()
+            AppSettingsView(onDisconnect: onDisconnect)
                 .tabItem {
                     Label("Settings", systemImage: "gear")
                 }
@@ -77,6 +79,7 @@ struct AllVideosView: View {
                         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 20), count: 4), spacing: 20) {
                             ForEach(apiService.videos) { video in
                                 VideoThumbnailCard(video: video) {
+                                    print("Video tapped: \(video.title)")
                                     selectedVideo = video
                                     showingPlayer = true
                                 }
@@ -276,7 +279,11 @@ struct VideoSearchView: View {
 // MARK: - Settings View
 struct AppSettingsView: View {
     @EnvironmentObject var apiService: VideoAPIService
-    @Environment(\.presentationMode) var presentationMode
+    let onDisconnect: () -> Void
+    
+    init(onDisconnect: @escaping () -> Void = {}) {
+        self.onDisconnect = onDisconnect
+    }
     
     var body: some View {
         NavigationView {
@@ -306,8 +313,7 @@ struct AppSettingsView: View {
                     }
                     
                     Button("Disconnect") {
-                        // Return to server discovery
-                        presentationMode.wrappedValue.dismiss()
+                        onDisconnect()
                     }
                     .foregroundColor(.red)
                 }
@@ -517,7 +523,7 @@ struct VideoPlayerView: View {
     }
     
     private func setupPlayer() {
-        let videoURL = "\(apiService.baseURL)/\(video.file)"
+        let videoURL = "\(apiService.baseURL)\(video.streamURL)"
         guard let url = URL(string: videoURL) else { return }
         
         player = AVPlayer(url: url)
@@ -526,5 +532,5 @@ struct VideoPlayerView: View {
 }
 
 #Preview {
-    MainView(server: DiscoveredServer(name: "Test Server", host: "127.0.0.1", port: 5000))
+    MainView(server: DiscoveredServer(name: "Test Server", host: "127.0.0.1", port: 5000)) { }
 }
