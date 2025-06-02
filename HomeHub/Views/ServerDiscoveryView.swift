@@ -19,11 +19,15 @@ struct ServerDiscoveryView: View {
     @State private var manualServerURL = ""
     @State private var showingManualEntry = false
     @State private var isConnecting = false
-    @State private var connectedServer: DiscoveredServer?
     @State private var connectionError: String?
-    @State private var showingMainView = false
     @FocusState private var focusedField: FocusedField?
     @Namespace private var namespace
+    
+    let onServerConnected: (DiscoveredServer) -> Void
+    
+    init(onServerConnected: @escaping (DiscoveredServer) -> Void = { _ in }) {
+        self.onServerConnected = onServerConnected
+    }
     
     private var gridColumns: [GridItem] {
         Array(repeating: GridItem(.flexible(), spacing: 30), count: 3)
@@ -46,11 +50,6 @@ struct ServerDiscoveryView: View {
             }
             .padding()
             .preferredColorScheme(.dark)
-        }
-        .fullScreenCover(isPresented: $showingMainView) {
-            if let server = connectedServer {
-                MainView(server: server)
-            }
         }
         .alert("Enter Server URL", isPresented: $showingManualEntry) {
             TextField("http://192.168.1.100:5000", text: $manualServerURL)
@@ -195,8 +194,7 @@ struct ServerDiscoveryView: View {
             await MainActor.run {
                 if apiService.errorMessage == nil {
                     // Connection successful
-                    connectedServer = server
-                    showingMainView = true
+                    onServerConnected(server)
                 } else {
                     // Connection failed
                     connectionError = apiService.errorMessage
