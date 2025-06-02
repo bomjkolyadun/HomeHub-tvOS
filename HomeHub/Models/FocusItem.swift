@@ -12,5 +12,6 @@ enum FocusItem: Hashable {
   case video(String)
   case server(String)
   case manualEntry
+  case refresh
 }
 

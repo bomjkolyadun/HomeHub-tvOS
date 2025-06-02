@@ -9,6 +9,8 @@ import SwiftUI
 import Network
 
 struct ServerDiscoveryView: View {
+  @AppStorage("recentServers") private var recentServersData: Data = Data()
+  @State private var recentServers: [DiscoveredServer] = []
   @StateObject private var discovery = HomeHubDiscovery()
   @State private var selectedServer: DiscoveredServer?
   @State private var manualServerURL = ""
@@ -36,18 +38,17 @@ struct ServerDiscoveryView: View {
         Spacer()
 
         serverGrid
+        recentGrid
 
         Spacer()
 
         connectionStatusSection
-
-        actionButtonsSection
       }
       .padding()
       .preferredColorScheme(.dark)
     }
     .alert("Enter Server URL", isPresented: $showingManualEntry) {
-      TextField("http://192.168.1.100:5000", text: $manualServerURL)
+      TextField("http://192.168.1.100:8080", text: $manualServerURL)
       Button("Connect") {
         connectToManualServer()
       }
@@ -55,6 +56,9 @@ struct ServerDiscoveryView: View {
     }
     .onAppear {
       discovery.startDiscovery()
+      if let decoded = try? JSONDecoder().decode([DiscoveredServer].self, from: recentServersData) {
+        recentServers = decoded
+      }
     }
     .onDisappear {
       discovery.stopDiscovery()
@@ -87,9 +91,37 @@ struct ServerDiscoveryView: View {
 
       // Manual entry tile
       manualEntryTile
+      refreshTile
     }
     .focusScope(namespace)
   }
+
+  private var recentGrid: some View {
+    VStack(alignment: .leading, spacing: 10) {
+      if !recentServers.isEmpty {
+        Text("Recent Servers")
+          .font(.headline)
+          .padding(.leading)
+
+        LazyVGrid(columns: gridColumns, spacing: 30) {
+          ForEach(recentServers, id: \.self) { server in
+            Button(action: {
+              connectToServer(server)
+            }) {
+              ServerTileView(
+                server: server,
+                isSelected: focusedField == .server(server.id),
+                isConnecting: isConnecting && selectedServer?.id == server.id,
+              )
+            }
+            .buttonStyle(.plain)
+            .focused($focusedField, equals: .server(server.id))
+          }
+        }
+      }
+    }
+  }
+
 
   private func discoveredServerTile(_ server: DiscoveredServer) -> some View {
     Button(action: {
@@ -97,14 +129,13 @@ struct ServerDiscoveryView: View {
     }) {
       ServerTileView(
         server: server,
-        isSelected: focusedField == .server(server.id.uuidString),
+        isSelected: focusedField == .server(server.id),
         isConnecting: isConnecting && selectedServer?.id == server.id
       )
     }
-    .buttonStyle(PlainButtonStyle())
-    .focused($focusedField, equals: .server(server.id.uuidString))
+    .focused($focusedField, equals: .server(server.id))
     .onChange(of: focusedField) { _, newValue in
-      if case .server(let id) = newValue, id == server.id.uuidString {
+      if case .server(let id) = newValue, id == server.id {
         selectedServer = server
       }
     }
@@ -119,13 +150,19 @@ struct ServerDiscoveryView: View {
         isConnecting: isConnecting && showingManualEntry
       )
     }
-    .buttonStyle(PlainButtonStyle())
     .focused($focusedField, equals: .manualEntry)
     .onChange(of: focusedField) { _, newValue in
       if newValue == .manualEntry {
         selectedServer = nil
       }
     }
+  }
+
+  private var refreshTile: some View {
+    RefreshServerTileView(isSelected: focusedField == .refresh) {
+      discovery.startDiscovery()
+      connectionError = nil
+    }.focused($focusedField, equals: .refresh)
   }
 
   private var connectionStatusSection: some View {
@@ -137,42 +174,6 @@ struct ServerDiscoveryView: View {
           .padding()
       }
     }
-  }
-
-  private var actionButtonsSection: some View {
-    HStack(spacing: 40) {
-      connectButton
-      refreshButton
-    }
-    .padding(.bottom, 50)
-  }
-
-  private var connectButton: some View {
-    Button(action: {
-      if let server = selectedServer {
-        connectToServer(server)
-      } else if showingManualEntry {
-        presentManualEntry()
-      }
-    }) {
-      Label("Connect", systemImage: "link")
-        .font(.title3)
-        .padding()
-    }
-    .disabled(selectedServer == nil && !showingManualEntry)
-    .focusable(true)
-  }
-
-  private var refreshButton: some View {
-    Button(action: {
-      discovery.startDiscovery()
-      connectionError = nil
-    }) {
-      Label("Refresh", systemImage: "arrow.clockwise")
-        .font(.title3)
-        .padding()
-    }
-    .focusable(true)
   }
 
   private func connectToServer(_ server: DiscoveredServer) {
@@ -190,6 +191,8 @@ struct ServerDiscoveryView: View {
         if apiService.errorMessage == nil {
           // Connection successful
           onServerConnected(server)
+          addServerToRecents(server)
+          onServerConnected(server)
         } else {
           // Connection failed
           connectionError = apiService.errorMessage
@@ -199,13 +202,25 @@ struct ServerDiscoveryView: View {
     }
   }
 
+  private func addServerToRecents(_ server: DiscoveredServer) {
+    var updated = recentServers.filter { $0 != server }
+    updated.insert(server, at: 0)
+    if updated.count > 10 { updated = Array(updated.prefix(10)) }
+
+    recentServers = updated
+    if let data = try? JSONEncoder().encode(updated) {
+      recentServersData = data
+    }
+  }
+
+
   private func connectToManualServer() {
     guard !manualServerURL.isEmpty else { return }
 
     // Create a temporary server from manual URL
     let components = manualServerURL.replacingOccurrences(of: "http://", with: "").split(separator: ":")
     let host = String(components.first ?? "")
-    let port = Int(components.last ?? "") ?? 5000
+    let port = Int(components.last ?? "") ?? 8080
 
     let manualServer = DiscoveredServer(name: "Manual Server", host: host, port: port)
     connectToServer(manualServer)

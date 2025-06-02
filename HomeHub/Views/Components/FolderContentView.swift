@@ -12,9 +12,9 @@ struct FolderContentView: View {
   @EnvironmentObject var apiService: VideoAPIService
   @State private var folderVideos: [VideoItem] = []
   @State private var isLoading = false
-  @State private var selectedVideo: VideoItem?
-  @State private var showingPlayer = false
+  @State private var activeVideo: VideoItem?
   @Environment(\.presentationMode) var presentationMode
+  @FocusState private var focusedItem: FocusItem?
 
   var body: some View {
     NavigationView {
@@ -33,9 +33,8 @@ struct FolderContentView: View {
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 20), count: 4), spacing: 20) {
               ForEach(folderVideos) { video in
                 VideoThumbnailCard(video: video) {
-                  selectedVideo = video
-                  showingPlayer = true
-                }
+                  activeVideo = video
+                }.focused($focusedItem, equals: .video(video.id))
               }
             }
             .padding()
@@ -54,10 +53,8 @@ struct FolderContentView: View {
     .task {
       await loadFolderContent()
     }
-    .fullScreenCover(isPresented: $showingPlayer) {
-      if let video = selectedVideo {
-        VideoPlayerView(video: video)
-      }
+    .fullScreenCover(item: $activeVideo) { video in
+      VideoPlayerView(video: video)
     }
   }
 
