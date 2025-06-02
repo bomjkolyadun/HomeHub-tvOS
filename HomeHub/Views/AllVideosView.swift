@@ -26,7 +26,7 @@ struct AllVideosView: View {
                 VideoThumbnailCard(video: video) {
                   print("Video tapped: \(video.title)")
                   activeVideo = video
-                }.focused($focusedItem, equals: .video(video.uuid))
+                }.focused($focusedItem, equals: .video(video.id))
               }
             }
             .padding()

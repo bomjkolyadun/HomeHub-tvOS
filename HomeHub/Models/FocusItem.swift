@@ -9,6 +9,8 @@ import Foundation
 
 enum FocusItem: Hashable {
   case folder(UUID)
-  case video(UUID)
+  case video(String)
+  case server(String)
+  case manualEntry
 }
 
