@@ -38,7 +38,7 @@ class HomeHubDiscovery: ObservableObject {
     let parameters = NWParameters()
     parameters.includePeerToPeer = true
 
-    browser = NWBrowser(for: .bonjourWithTXTRecord(type: "_homehub._tcp", domain: nil), using: parameters)
+    browser = NWBrowser(for: .bonjour(type: "_homehub._tcp", domain: "local."), using: parameters)
 
     browser?.stateUpdateHandler = { [weak self] state in
       Task { @MainActor in
@@ -98,6 +98,7 @@ class HomeHubDiscovery: ObservableObject {
     // Parse endpoint
     switch endpoint {
     case .hostPort(let endpointHost, let endpointPort):
+      print("🔍 Endpoint: \(endpoint)")
       switch endpointHost {
       case .ipv4(let ipv4):
         host = ipv4.debugDescription
