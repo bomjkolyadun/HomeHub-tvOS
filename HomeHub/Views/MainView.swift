@@ -508,12 +508,9 @@ struct VideoPlayerView: View {
         .onDisappear {
             player?.pause()
         }
-        .gesture(
-            TapGesture()
-                .onEnded { _ in
-                    presentationMode.wrappedValue.dismiss()
-                }
-        )
+        .onTapGesture {
+            presentationMode.wrappedValue.dismiss()
+        }
     }
     
     private func setupPlayer() {
