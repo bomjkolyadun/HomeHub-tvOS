@@ -27,6 +27,13 @@ This repository contains the **HomeHub** tvOS application written in Swift using
 
 ## Testing
 - There are currently no automated tests. Run `swift --version` to confirm toolchain availability before committing. If tests are added under `Tests/`, run `swift test`.
+- To quickly check for compile-time errors without Xcode, run:
+  
+  ```bash
+  swiftc -typecheck $(git ls-files '*.swift')
+  ```
+  
+  This uses `swiftc` to typecheck all Swift sources and fails if any errors are detected.
 
 ## Branch management
 - Open PRs against `main` and rebase onto `main` before merging to keep history linear.
